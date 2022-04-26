@@ -1,0 +1,211 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+In this video we will learn the structure of the data with sample values for each attribute and we will see the five number summary statistics for numeric variables
+
+```{r}
+PM25 <- read.csv("PRSA_data_2010.1.1-2014.12.31.csv")
+```
+
+We will print the structure of data with sample values using str command
+```{r}
+str(PM25)
+```
+
+Now, let's show the summary statistics of the dataset
+```{r}
+summary(PM25)
+```
+Create a randomly generated train and test dataset from the Beijing PM2.5 dataset
+
+Create a num_index variable and set it to a value equal to the number of observations int eh Beijing's PM2.5 dataset
+```{r}
+num_index <- nrow(PM25)
+```
+
+Using the sample() function, randomly select 70% of the num_index values and store them in train_index
+```{r}
+train_index <- sample(1:num_index, 0.7*nrow(PM25))
+```
+Use train_index to select a random subset of rows from the Beijing PM2.5 dataset and store them in a DataFrame named PM25_Train
+```{r}
+PM25_Train <- PM25[train_index,]
+
+```
+Store the remaining obseravation into a DataFrame named PM25_test:
+```{r}
+PM25_Test <- PM25[-train_index,]
+```
+In this video we will visualize the pm2.5, DEWP, TEMP, and PRES variables in a time series plot and observe any patterns that may emerge over the years in these variables.
+
+Import all the required libraries
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(grid)
+```
+
+ggplot2
+
+Now we will transform year, month and hour into datetime using lubridate package named ymd_h:
+```{r}
+PM25$datetime <- with(PM25, ymd_h(sprintf('%04d%02d%02d%02d', year, month, day,hour)))
+```
+Plot the PM2.5, TEMP,DEWP and PRES for all the years
+```{r}
+library(ggplot2)
+```
+
+```{r}
+plot_pm25 <- PM25 %>%
+  select(datetime, pm2.5) %>%
+  na.omit() %>%
+  ggplot() + 
+  geom_point(aes(x = datetime, y = pm2.5), size = 0.5, alpha = 0.75) +
+  ylab("PM2.5")
+
+plot_TEMP <- PM25 %>%
+  select(datetime, TEMP) %>%
+  na.omit() %>%
+  ggplot() + 
+  geom_point(aes(x = datetime, y = TEMP), size = 0.5, alpha = 0.75) +
+  ylab("TEMP")
+
+plot_DEWP <- PM25 %>%
+  select(datetime, DEWP) %>%
+  na.omit() %>%
+  ggplot() + 
+  geom_point(aes(x = datetime, y = DEWP), size = 0.5, alpha = 0.75) +
+  ylab("DEWP")
+
+plot_PRES <- PM25 %>%
+  select(datetime, PRES) %>%
+  na.omit() %>%
+  ggplot() + 
+  geom_point(aes(x = datetime, y = PRES), size = 0.5, alpha = 0.75) +
+  ylab("PRES")
+```
+
+Use the following command to plot the graph
+```{r}
+grid.newpage()
+grid.draw(rbind(ggplotGrob(plot_pm25), ggplotGrob(plot_TEMP),ggplotGrob(plot_DEWP),ggplotGrob(plot_PRES), size = "last"))
+```
+As shown in the above figure a distinct seasonality is observed year on year. While DEWP, TEMP, and PRES show seasonality (the same pattern repeating every 12 months). PM2.5 seems to have a random pattern. This is an early indicate that it is highly unlikely that we will see any effect of the three variables on PM2.5. However, let's probe further to ascertain this hypothesis using a correlation plot and observe if there exists any relationship between the variables.
+
+
+
+Undertake the correlation analysis
+```{r}
+library(corrplot)
+# Create a new object and store the required values from PM25 into it
+corr = cor(PM25[!is.na(PM25$pm2.5), c("pm2.5", "DEWP", "TEMP", "PRES", "Iws","Is","Ir")])
+# Use the corrplot package to display the graphical representation of a correlation  matrix
+corrplot(corr)
+```
+First, we compute the correlation between all the variables. The resulting correlation plot shows that there appear to be no strong correlation between PM2.5 and the other variables. However, PM2.5 and DEWP, TEMP, and lws shows some mild correlation which indicates the relationship. This should not come as surprise because threee variables follow a seasonality trend, PM2.5 seems more random. Note here that we have not done any processing or transformation to the dataset. These findings come directly from our first level of analysis.
+
+
+Draw a scatter plot to explore the relationship between PM2.5 levels and other factors
+
+
+```{r}
+# Importing library
+library(ggplot2)
+# Plot the scatter plot between DEWP and PM2.5 with month variable used for color
+ggplot(data = PM25, aes(x = DEWP, y = pm2.5, color = month)) +geom_point() +geom_smooth(method='auto',formula=y~x, colour = "red", size =1.5)
+```
+The plot above shows the relationship between DEWP and PM2.5 levels
+```{r}
+ggplot(data = PM25, aes(x = TEMP, y = pm2.5, color = month)) +geom_point() +geom_smooth(method='auto',formula=y~x, colour = "red", size =1.5)
+```
+This plot shows the relationship between TEMP and pm2.5
+
+Create a scatter plot between DEWP and PM2.5 with an hour of the day used for color and separate views for months of the year
+```{r}
+ggplot(data = PM25, aes(x = DEWP, y = pm2.5, color = hour)) +geom_point() +geom_smooth(method='auto',formula=y~x, colour = "red", size =1) +facet_wrap(~ month, nrow = 4)
+```
+In order to gauge some relationship between variables, we used a scatter plot between PM2.5 and DEWP with a line fit. Observe that in the code, we have passed an argument to geom_smooth() that is method = "auto" which automatically decides based on the data, which model to use to fit a line. 
+
+The geom_smooth method chooses generalized addtitive model (GAM). This indicates that the linear relationship assumption of the linear regression model is being violated. A similar pattern is seen with TEMP and PM2.5 However, we could go one step further and split the scatterplot month-wise.
+
+This shows that a linear relationship exists but it is highly season-dependent. For example, in April (represented by the integer 4), the DEWP and PM2.5 have a near to perfect straight line fit.
+
+
+
+Draw a scatter plot  between PRES and PM2.5 split by months
+```{r}
+ggplot(data = PM25, aes(x = PRES, y = pm2.5, color = hour)) +geom_point() +geom_smooth(method='auto',formula=y~x, colour = "red", size =1) +facet_wrap(~ month, nrow = 4)
+```
+
+Explore Simple and Multiple Regression Model
+
+```{r}
+simple_PM25_linear_model <- lm(pm2.5 ~ DEWP, data = PM25)
+#Print summary
+summary(simple_PM25_linear_model)
+```
+```{r}
+simple_PM25_multiple_model <- lm(pm2.5 ~ DEWP+TEMP+Iws, data = PM25)
+#Print summary
+summary(simple_PM25_multiple_model)
+```
+
+
+In this video, We will create a new variable that stores the rolling 3-hr average of the PM2.5 variable in the Beijing PM2.5 dataset. The rolling average that will smoothen any noise  from a reading of PM2.5
+We will use the zoo package.
+```{r}
+PM25$datetime <- with(PM25, ymd_h(sprintf('%04d%02d%02d%02d', year, month, day,hour)))
+# Remove the NAs and look at the top 6 values of the pm2.5 variable in the PM2.5 dataset
+PM25_subset <- na.omit(PM25[,c("datetime","pm2.5")])
+head(PM25_subset$pm2.5)
+```
+Store the PM2.5_subset into a zoo object of ordered observation with datetime as its index and print the top 6 values
+```{r}
+library(zoo)
+zoo(PM25_subset$pm2.5, PM25_subset$datetime)
+```
+Use the rollapply function to create a 3-hr rolling average of the pm2.5 variable and print 6 values
+```{r}
+PM25_three_hour_average <- rollapply(zoo(PM25_subset$pm2.5,PM25_subset$datetime), 3, mean)
+```
+
+Observe that the 145 value is the average of 3 hours of the pm2.5 variable.
+
+In this video we will find the MAE, RMSE, R-squared, Adjusted R-squared and MRR
+
+```{r}
+# Create a variable named y_predicted  and assign the value from simple_PM25_multiple_model
+y_predicted <- predict(simple_PM25_multiple_model, data = PM25)
+```
+
+```{r}
+y_actual <- PM25[!is.na(PM25$pm2.5),"pm2.5"]
+```
+
+```{r}
+# Find the MAE using the mean function
+MAE <- mean(abs(y_actual-y_predicted))
+```
+```{r}
+# Calculate the RMSE
+RMSE <- sqrt(mean((y_actual-y_predicted)^2))
+```
+```{r}
+model_summary <- summary(simple_PM25_multiple_model)
+model_summary$r.squared
+```
+We will find the adjusted R-squared
+```{r}
+model_summary$adj.r.squared
+```
+
+Find the MRR
+```{r}
+Query_RR_Vector <- c(1/3,1/4,1)
+MRR <- sum(Query_RR_Vector)/length(Query_RR_Vector)
+```
+Observe that MAE gives the value of 59.65 and RMSE is 81.5 which shows a high variance in the errors. In order words, the observations have a high error (which increases the variance of the frequency distribution of error magnitude) in prediction; MAE fails to identify the error whereas  RMSE amplifies it well. If the MAE and RMSE are almost equal we could infer that the variance in the frequency distribution of error magnitudes is low and that the model is doing well with all the observations.
